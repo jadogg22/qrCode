@@ -31,5 +31,6 @@ func main() {
 
 	r.POST("/Generate", handlers.Generate)
 	r.GET("/qr/:site", handlers.GO)
+	r.GET("/users/:user", handlers.GetUser)
 	http.ListenAndServe(":8080", r)
 }

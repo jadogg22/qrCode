@@ -2,6 +2,8 @@ package database
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"log"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -26,6 +28,16 @@ func Initialize() {
 		user TEXT NOT NULL,
 		key TEXT NOT NULL,
 		site_name TEXT NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT NOT NULL UNIQUE,
+		password TEXT NOT NULL,
+		salt TEXT NOT NULL,
+		created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+		email TEXT NOT NULL UNIQUE
 	);`
 	_, err = DB.Exec(createTableSQL)
 	if err != nil {
@@ -110,4 +122,108 @@ func IsUnique(key string) bool {
 	}
 
 	return false
+}
+
+func GetSitesByUser(user string) ([]Site, error) {
+	// select all the sites for the user
+	rows, err := DB.Query("SELECT id, user, key, site_name FROM Sites WHERE user = ?", user)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sites []Site
+
+	for rows.Next() {
+		var site Site
+		err := rows.Scan(&site.ID, &site.User, &site.Key, &site.SiteName)
+		if err != nil {
+			return nil, err
+		}
+		sites = append(sites, site)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return sites, nil
+
+}
+
+// ErrUserExists is returned when a user already exists
+var ErrUserExists = errors.New("user already exists")
+var ErrEmailExists = errors.New("email already exists")
+
+func UserExists(username, email string) error {
+	rows, err := DB.Query("SELECT id, username, email FROM users WHERE username = ? OR email = ?", username, email)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// check if the user or email already exists
+
+	var id int
+	var user string
+	var mail string
+
+	for rows.Next() {
+		err := rows.Scan(&id, &user, &mail)
+		if err != nil {
+			return err
+		}
+		if user == username {
+			return ErrUserExists
+		}
+		if mail == email {
+			return ErrEmailExists
+		}
+	}
+
+	return nil
+}
+
+var (
+	ErrUsernameTaken = errors.New("username already taken")
+	ErrEmailTaken    = errors.New("email already taken")
+	ErrDBInsert      = errors.New("failed to insert user into database")
+)
+
+func AddUser(username, passwordHash, salt, email string) error {
+	// Insert the new user into the database
+	insertSQL := `INSERT INTO users (username, password, salt, email) VALUES (?, ?, ?, ?)`
+	_, err := DB.Exec(insertSQL, username, passwordHash, salt, email)
+	if err != nil {
+		if isUniqueConstraintError(err) {
+			if isUsernameConstraintError(err) {
+				return ErrUsernameTaken
+			}
+			if isEmailConstraintError(err) {
+				return ErrEmailTaken
+			}
+		}
+		return fmt.Errorf("%w: %v", ErrDBInsert, err)
+	}
+	return nil
+}
+
+// isUniqueConstraintError checks if the error is due to a unique constraint violation
+func isUniqueConstraintError(err error) bool {
+	// SQLite error codes for unique constraint violations are generally:
+	// - "UNIQUE constraint failed" (error code 19)
+	// This can be checked via error message or error code
+	return err != nil && (err.Error() == "UNIQUE constraint failed" || err.Error() == "UNIQUE constraint failed: users.username" || err.Error() == "UNIQUE constraint failed: users.email")
+}
+
+// isUsernameConstraintError checks if the error is related to username uniqueness
+func isUsernameConstraintError(err error) bool {
+	// Specific handling for username constraint errors
+	return err != nil && err.Error() == "UNIQUE constraint failed: users.username"
+}
+
+// isEmailConstraintError checks if the error is related to email uniqueness
+func isEmailConstraintError(err error) bool {
+	// Specific handling for email constraint errors
+	return err != nil && err.Error() == "UNIQUE constraint failed: users.email"
 }

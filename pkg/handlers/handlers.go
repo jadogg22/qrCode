@@ -90,3 +90,38 @@ func GO(c *gin.Context) {
 	// if site exists, return the shortened url
 
 }
+
+type MySites struct {
+	Site       string `json:"site"`
+	Count      int    `json:"count"`
+	CountToday int    `json:"count_today"`
+}
+
+type User struct {
+	Name  string    `json:"name"`
+	Sites []MySites `json:"sites"`
+}
+
+func GetUser(c *gin.Context) {
+	// get the name from the GET request
+	user := c.Param("user")
+	if user == "" {
+		c.JSON(400, gin.H{
+			"error": "No user provided",
+		})
+		return
+	}
+
+	// search db for user
+	// if user exists, return the user's sites stats
+	userStruct, err := database.GetSitesByUser(user)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// return the user's sites stats
+	c.JSON(200, userStruct)
+}
