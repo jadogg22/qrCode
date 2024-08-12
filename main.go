@@ -29,6 +29,7 @@ func main() {
 		})
 	})
 
+	r.POST("/login", handlers.Login)
 	r.POST("/Generate", handlers.Generate)
 	r.GET("/qr/:site", handlers.GO)
 	r.GET("/users/:user", handlers.GetUser)

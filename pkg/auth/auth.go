@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"golang.org/x/crypto/bcrypt"
 	"math/rand"
 	"qrCode/pkg/database"
@@ -60,6 +61,21 @@ func AddUser(username, password, email string) error {
 	err = database.AddUser(username, passwordHash, salt, email)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+var ErrInvalidPassword = errors.New("invalid password")
+
+func CheckPassword(username, password string) error {
+	passwordHash, salt, err := database.GetUser(username)
+	if err != nil {
+		return err
+	}
+
+	if !CheckPasswordHash(password, salt, passwordHash) {
+		return ErrInvalidPassword
 	}
 
 	return nil

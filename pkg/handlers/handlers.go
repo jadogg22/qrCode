@@ -4,9 +4,34 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"math/rand"
+	"qrCode/pkg/auth"
 	"qrCode/pkg/database"
 	"time"
 )
+
+func Login(c *gin.Context) {
+	// Get the username and password from the POST request
+	username := c.PostForm("username")
+	password := c.PostForm("password")
+
+	fmt.Println("Username: ", username)
+	fmt.Println("Password: ", password)
+
+	// Check if the username and password are correct
+	err := auth.CheckPassword(username, password)
+	if err != nil {
+		c.JSON(401, gin.H{
+			"error": "Invalid username or password",
+		})
+		return
+	}
+
+	// create a new jwt token
+
+	c.JSON(200, gin.H{
+		"message": "Hello, World!",
+	})
+}
 
 func Generate(c *gin.Context) {
 	// Get the name from the POST request

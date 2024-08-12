@@ -151,27 +151,38 @@ func GetSitesByUser(user string) ([]Site, error) {
 
 }
 
+func GetUser(username string) (string, string, error) {
+	row := DB.QueryRow("SELECT password, salt FROM users WHERE username = ?", username)
+
+	var password string
+	var salt string
+	err := row.Scan(&password, &salt)
+	if err != nil {
+		return "", "", err
+	}
+
+	return "", "", nil
+}
+
 // ErrUserExists is returned when a user already exists
-var ErrUserExists = errors.New("user already exists")
-var ErrEmailExists = errors.New("email already exists")
+var (
+	ErrUserExists  error = errors.New("user already exists")
+	ErrEmailExists error = errors.New("email already exists")
+)
 
 func UserExists(username, email string) error {
-	rows, err := DB.Query("SELECT id, username, email FROM users WHERE username = ? OR email = ?", username, email)
+	// Query to check if a user with the given username or email exists
+	rows, err := DB.Query("SELECT username, email FROM users WHERE username = ? OR email = ?", username, email)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to query users: %v", err)
 	}
 	defer rows.Close()
 
-	// check if the user or email already exists
-
-	var id int
-	var user string
-	var mail string
-
+	// Iterate through the result set
 	for rows.Next() {
-		err := rows.Scan(&id, &user, &mail)
-		if err != nil {
-			return err
+		var user, mail string
+		if err := rows.Scan(&user, &mail); err != nil {
+			return fmt.Errorf("failed to scan row: %v", err)
 		}
 		if user == username {
 			return ErrUserExists
@@ -179,6 +190,11 @@ func UserExists(username, email string) error {
 		if mail == email {
 			return ErrEmailExists
 		}
+	}
+
+	// Check if there was an error while iterating through rows
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("rows iteration error: %v", err)
 	}
 
 	return nil
