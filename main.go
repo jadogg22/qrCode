@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"net/http"
+
 	// add gin package
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
 	// add handlers package
+	"qrCode/pkg/auth"
 	"qrCode/pkg/handlers"
 )
 
@@ -15,7 +18,7 @@ func main() {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5174"}, // Update with your frontend origin
+		AllowOrigins:     []string{"http://localhost:5173"}, // Update with your frontend origin
 		AllowMethods:     []string{"GET", "POST"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -29,9 +32,11 @@ func main() {
 		})
 	})
 
-	r.POST("/login", handlers.Login)
-	r.POST("/Generate", handlers.Generate)
-	r.GET("/qr/:site", handlers.GO)
-	r.GET("/users/:user", handlers.GetUser)
+	r.POST("/api/login", handlers.Login)
+	r.POST("/api/register", handlers.Register)
+	r.POST("/api/Generate", handlers.Generate)
+	r.GET("/api/qr/:site", handlers.GO)
+	r.GET("/api/users/:user", handlers.GetUser)
+	r.GET("/api/mySites", auth.AuthMiddleware(), handlers.GetSites)
 	http.ListenAndServe(":8080", r)
 }

@@ -7,8 +7,8 @@ import (
 	"qrCode/pkg/database"
 )
 
-func HashPassword(password string) (string, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+func HashPassword(password, salt string) (string, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password+salt), bcrypt.DefaultCost)
 	if err != nil {
 		return "", err
 	}
@@ -24,7 +24,7 @@ func SavePassword(password string) (string, string, error) {
 	// generate salt for password
 	salt := GenerateSalt()
 	// hash password
-	hashedPassword, err := HashPassword(password + salt)
+	hashedPassword, err := HashPassword(password, salt)
 	if err != nil {
 		return "", "", err
 	}
@@ -74,6 +74,7 @@ func CheckPassword(username, password string) error {
 		return err
 	}
 
+	// check if password not correct return error
 	if !CheckPasswordHash(password, salt, passwordHash) {
 		return ErrInvalidPassword
 	}

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"qrCode/pkg/database"
 	"testing"
 )
 
@@ -92,12 +93,68 @@ func TestHashPassword(t *testing.T) {
 	}
 }
 
-// user in the database
-// id | username | password | salt | created_at | updated_at | email
-func TestAddUser(t *testing.T) {
-	// now we are getting the db going first we need to test a couple of things,
-	// mostly just if the user is already in the database.
+func TestSavePassword(t *testing.T) {
+	// this is a simple test for the salt generation function
+	// we just need to test if the salt is the correct length and if the salt is random
+	tests := []struct {
+		name        string
+		pasword     string
+		givenPass   string
+		salt        string
+		givenSalt   string
+		expectError bool
+	}{
+		{
+			name:        "good test",
+			pasword:     "testpassword",
+			givenPass:   "testpassword",
+			expectError: false,
+		},
+		{
+			name:        "good test",
+			pasword:     "password",
+			givenPass:   "password",
+			expectError: false,
+		},
+		{
+			name:        "good test",
+			pasword:     "thePasword",
+			givenPass:   "thePasword",
+			expectError: false,
+		},
+		{
+			name:        "bad password test",
+			pasword:     "password",
+			givenPass:   "password1",
+			salt:        "12345",
+			givenSalt:   "12345",
+			expectError: true,
+		},
+		{
+			name:        "bad password test",
+			pasword:     "myPassword",
+			givenPass:   "NotMyPassword",
+			expectError: true,
+		},
+	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hashedPassword, salt, err := SavePassword(tt.pasword)
+			if err != nil && tt.expectError == false {
+				t.Errorf("SavePassword() error = %v, wantErr %v", err, tt.expectError)
+			}
+			// checks if the password matches the hash and if expactHashMatch is oposite
+			if CheckPasswordHash(tt.givenPass, salt, hashedPassword) == tt.expectError {
+				t.Errorf("SavePassword() = %v, want %v", hashedPassword, tt.expectError)
+			}
+		})
+	}
+}
+
+func TestRegisterUser(t *testing.T) {
+	// this is a simple test for the salt generation function
+	// we just need to test if the salt is the correct length and if the salt is random
 	tests := []struct {
 		name        string
 		username    string
@@ -106,60 +163,57 @@ func TestAddUser(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "Add User",
+			name:        "good test",
 			username:    "testuser",
 			password:    "testpassword",
-			email:       "test1@gmail.com",
+			email:       "testuser@gmail.com",
 			expectError: false,
 		},
 		{
-			name:        "Add Duplicate User",
+			name:        "bad test - same user",
 			username:    "testuser",
 			password:    "testpassword",
-			email:       "test1@gmail.com",
+			email:       "testuser@gmail.com",
 			expectError: true,
 		},
 		{
-			name:        "Add User with duplicate email",
+			name:        "good test",
 			username:    "testuser2",
 			password:    "testpassword",
-			email:       "test1@gmail.com",
-			expectError: true,
-		},
-		// these should pass just adding a bunch of users to the database for fun
-		{
-			name:        "Good user",
-			username:    "testuser3",
-			password:    "testpassword",
-			email:       "tester3@gmail.com",
+			email:       "testuser2@gmail.com",
 			expectError: false,
 		},
 		{
-			name:        "Good user",
-			username:    "testuser4",
-			password:    "testpassword",
-			email:       "tester4@gmail.com",
-			expectError: false,
-		},
-		{
-			name:        "Good user",
-			username:    "SwagDaddy69",
-			password:    "dahBoi",
-			email:       "SwagDaddyBoi69@gmail.com",
+			name:        "good test",
+			username:    "mikeOxLong",
+			password:    "biggerThanAverage",
+			email:       "mike@oxlong.university",
 			expectError: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := AddUser(tt.username, tt.password, tt.email)
-			if err != nil && tt.expectError == false {
-				t.Errorf("AddUser() error = %v, wantErr %v", err, tt.expectError)
+			hashedPassword, salt, err := SavePassword(tt.password)
+			if err != nil {
+				t.Errorf("RegisterUser() error = %v, wantErr %v", err, tt.expectError)
 			}
 
-			if err == nil && tt.expectError == true {
-				t.Errorf("AddUser() error = %v, wantErr %v", err, tt.expectError)
+			err = database.AddUser(tt.username, hashedPassword, salt, tt.email)
+			if err != nil && tt.expectError == false {
+				t.Errorf("RegisterUser() @AddUser error = %v, wantErr %v", err, tt.expectError)
 			}
+
+			err = CheckPassword(tt.username, tt.password)
+			if err != nil {
+				t.Errorf("RegisterUser() @CheckPassword error = %v, wantErr %v", err, tt.expectError)
+			}
+
+			err = CheckPassword(tt.username, "wrongPassword")
+			if err == nil && tt.expectError == true {
+				t.Errorf("RegisterUser() @CheckPassword @wrongPassword error = %v, wantErr %v", err, tt.expectError)
+			}
+
 		})
 	}
 

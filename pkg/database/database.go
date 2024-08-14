@@ -161,7 +161,7 @@ func GetUser(username string) (string, string, error) {
 		return "", "", err
 	}
 
-	return "", "", nil
+	return password, salt, nil
 }
 
 // ErrUserExists is returned when a user already exists
@@ -177,6 +177,10 @@ func UserExists(username, email string) error {
 		return fmt.Errorf("failed to query users: %v", err)
 	}
 	defer rows.Close()
+
+	if !rows.Next() {
+		return nil
+	}
 
 	// Iterate through the result set
 	for rows.Next() {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"math/rand"
+	"net/http"
 	"qrCode/pkg/auth"
 	"qrCode/pkg/database"
 	"time"
@@ -27,10 +28,67 @@ func Login(c *gin.Context) {
 	}
 
 	// create a new jwt token
+	token, err := auth.CreateToken(username)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
-	c.JSON(200, gin.H{
-		"message": "Hello, World!",
-	})
+	c.SetCookie("token", token, 3600, "/", "", false, true)
+	c.JSON(http.StatusOK, gin.H{"message": "Logged in successfully"})
+}
+
+func Register(c *gin.Context) {
+	// Get the username, password and email from the POST request
+	username := c.PostForm("username")
+	password := c.PostForm("password")
+	email := c.PostForm("email")
+
+	fmt.Println("Username: ", username)
+	fmt.Println("Password: ", password)
+	fmt.Println("Email: ", email)
+
+	// Check if the username and email are unique
+	err := database.UserExists(username, email)
+	if err != nil {
+		c.JSON(400, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// Hash the password
+	hashedPassword, salt, err := auth.SavePassword(password)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// Save the user to the database
+	err = database.AddUser(username, hashedPassword, salt, email)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	token, err := auth.CreateToken(username)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.SetCookie("token", token, 3600, "/", "", false, true)
+	c.JSON(http.StatusOK, gin.H{"message": "Logged in successfully"})
+
+	c.JSON(http.StatusOK, gin.H{"message": "User created successfully"})
 }
 
 func Generate(c *gin.Context) {
@@ -149,4 +207,30 @@ func GetUser(c *gin.Context) {
 
 	// return the user's sites stats
 	c.JSON(200, userStruct)
+}
+
+func GetSites(c *gin.Context) {
+	// Get the username from the context
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Convert username to string
+	usernameStr, ok := username.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username"})
+		return
+	}
+
+	sites, err := database.GetSitesByUser(usernameStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to retrive sites" + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, sites)
 }

@@ -17,7 +17,7 @@ const HomePage: React.FC = () => {
             encodedBody.append('name', url);
             console.log("body: " + encodedBody.toString());
 
-            const response = await fetch('http://localhost:8080/Generate', {
+            const response = await fetch('http://localhost:8080/api/Generate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
